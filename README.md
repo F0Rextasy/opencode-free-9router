@@ -39,6 +39,10 @@ OpenAI client ──▶ 9Router :20128/v1 ──▶ provider-node "OpenCode Free
 
 > See **[STRUCTURE.md](STRUCTURE.md)** for the full topology, file map and data-flow diagrams.
 
+> 9Router also ships its own `oc/`, `ocz/` and `opencode-go/` providers. This project is the
+> standalone, auditable alternative: you own the adapter, see exactly what leaves your machine,
+> and can point any OpenAI client at it with or without 9Router.
+
 ---
 
 ## The free models
@@ -155,15 +159,34 @@ The live run is deliberately paced because the free tier rate-limits bursts.
 
 ## 9Router notes
 
-`connect-9router.js` talks to a local 9Router at `http://127.0.0.1:20128`. Override with:
+`connect-9router.js` talks to a local 9Router at `http://127.0.0.1:20128`. It registers a custom
+`openai-compatible` node and an API-key connection, then prints the live model ids.
+
+Verified against **9Router v0.5.95**:
+
+```
+POST /api/provider-nodes  { name, prefix, baseUrl, type, apiType }   -> node
+POST /api/providers       { provider, name, apiKey, baseUrl }        -> connection
+GET  /v1/models                                                      -> <prefix>/<model>
+POST /v1/chat/completions  (with a router API key)                   -> 200
+```
+
+Models appear in 9Router as `ocfree/<model>`. Override behaviour with:
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `ROUTER_URL` | `http://127.0.0.1:20128` | 9Router base URL |
 | `ADAPTER_URL` | `http://127.0.0.1:8790/v1` | this adapter's base URL |
 | `ADAPTER_API_KEY` | `sk-opencode-free` | key the adapter expects (and 9Router sends) |
-| `PROVIDER_NAME` | `OpenCode Free` | name shown in the 9Router dashboard |
-| `INITIAL_PASSWORD` | `123456` | 9Router login password, if set |
+| `PROVIDER_NAME` | `OpenCode Free` | node name in the 9Router dashboard |
+| `PROVIDER_PREFIX` | `ocfree` | model id prefix used by 9Router |
+| `NINEROUTER_CLIENT` | auto-detected | path to 9Router's CLI API client |
+| `NINEROUTER_CLI_TOKEN` | — | fallback device token for raw HTTP mode |
+| `SKIP_CONNECTION` | — | set `1` to only create the node |
+
+9Router protects these routes with a device CLI token. The connector auto-detects the installed
+9Router package and reuses its own authenticated client; if it cannot, it falls back to raw HTTP
+with `NINEROUTER_CLI_TOKEN`.
 
 The adapter also honours `PORT`, `HOST`, `ADAPTER_API_KEY` and `QUIET`.
 

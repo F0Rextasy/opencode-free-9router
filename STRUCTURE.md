@@ -197,3 +197,22 @@ supplies every signal the gate checks.
    node src/selftest.js --live     (network)
       └── calls every working model, asserts a response
 ```
+
+---
+
+## 7. Proven 9Router integration
+
+The provider was registered and exercised end-to-end against **9Router v0.5.95**:
+
+```
+   POST /api/provider-nodes  {name,prefix,baseUrl,type:"openai-compatible",apiType:"chat"}
+         └▶ node  openai-compatible-chat-<uuid>
+
+   POST /api/providers       {provider:<uuid>,name,apiKey,baseUrl}
+         └▶ connection  authType:"apikey", isActive:true
+
+   GET  /v1/models           └▶ 10 ids, e.g. ocfree/big-pickle
+   POST /v1/chat/completions └▶ 200, "ROUTED-OK"
+
+   route:  client ─▶ 9Router :20128 ─▶ adapter :8790 ─▶ opencode.ai/zen/v1
+```
