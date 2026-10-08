@@ -1,0 +1,174 @@
+<div align="center">
+
+<img src="../assets/logo.svg" width="128" alt="logo de opencode-free-9router" />
+
+# opencode-free-9router
+
+**Expón los modelos gratuitos de OpenCode Zen como un único proveedor compatible con OpenAI para 9Router.**
+Sin cuenta de OpenCode, sin API key, sin suscripción — solo un adaptador local.
+
+Modelos gratis · cliente free-tier atestiguado · compatible con OpenAI · cero dependencias
+
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-3c873a?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](../LICENSE)
+[![Dependencies: 0](https://img.shields.io/badge/dependencies-0-brightgreen?style=flat-square)](../package.json)
+[![OpenAI Compatible](https://img.shields.io/badge/API-OpenAI--compatible-6ea8fe?style=flat-square)](https://platform.openai.com/docs/api-reference/chat)
+[![9Router](https://img.shields.io/badge/integrates-9Router-8b5cf6?style=flat-square)](https://9router.com)
+[![OpenCode](https://img.shields.io/badge/upstream-opencode.ai-18181b?style=flat-square)](https://opencode.ai)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square)](https://github.com/0xgetz/opencode-free-9router/pulls)
+
+[English](../README.md) · [Indonesia](README.id.md) · [Español](README.es.md) · [日本語](README.ja.md) · [中文](README.zh.md)
+
+</div>
+
+---
+
+## Qué es
+
+OpenCode incluye un **free tier**: diez modelos que puedes usar sin coste. Pero el acceso está
+restringido: la puerta de enlace responde `403 FreeTierError: "OpenCode's free tier can only be
+used from within OpenCode"` a menos que la petición lleve la huella del cliente oficial.
+
+`opencode-free-9router` reproduce esa huella en un pequeño adaptador local, de modo que **9Router
+—y todo lo que apunte a 9Router— puede llamar a estos modelos gratis.**
+
+```
+Cliente OpenAI ──▶ 9Router :20128/v1 ──▶ provider-node "OpenCode Free"
+               ──▶ adaptador :8790/v1 ──▶ opencode.ai/zen/v1  (Bearer public + atestación)
+```
+
+> Consulta **[STRUCTURE.md](../STRUCTURE.md)** para la topología completa, el mapa de archivos y los diagramas de flujo.
+
+---
+
+## Los modelos gratuitos
+
+Diez modelos verificados de extremo a extremo. Se usan dos familias de endpoint.
+
+| Modelo | Endpoint | Contexto | Notas |
+|--------|----------|----------|-------|
+| `big-pickle` | chat/completions | 200K | razonamiento general |
+| `fledge-alpha-free` | chat/completions | 1M | entrada texto + imagen |
+| `ling-3.1-flash-free` | chat/completions | 262K | flash rápido |
+| `longcat-2.5-preview-free` | chat/completions | 1M | contexto largo |
+| `mimo-v2.6-flash-free` | chat/completions | 200K | flash compacto |
+| `nemotron-3-ultra-free` | chat/completions | 1M | modelo grande |
+| `nemotron-3.5-lightning-free` | chat/completions | 262K | baja latencia |
+| `space-bunny-free` | chat/completions | 1M | salida 512K |
+| `muse-spark-1.2-contributor-free` | responses | 1M | modelo contributor |
+| `muse-spark-1.3-contributor-free` | responses | 1M | modelo contributor |
+
+**Degradados conocidos** (accesibles, upstream dice *Endpoint is unavailable*): `exo-free`,
+`ling-3.0-flash-fin-free`. Excluidos del conjunto por defecto pero documentados.
+
+**No proxificados** (protocolo distinto, SystemOne): `jev-1.13-free`. 9Router lo maneja nativamente.
+
+Ejecuta `node src/cli.js list` para el conjunto actual.
+
+---
+
+## Inicio rápido
+
+Requiere **Node.js >= 18**. No hay nada que instalar — cero dependencias.
+
+```bash
+git clone https://github.com/0xgetz/opencode-free-9router.git
+cd opencode-free-9router
+
+# 1. inicia el adaptador (http://127.0.0.1:8790/v1)
+node src/adapter.js
+
+# 2. en otra terminal, regístralo en 9Router (9Router debe estar activo)
+node src/connect-9router.js
+```
+
+Listo. En 9Router el proveedor **OpenCode Free** ya lista diez modelos.
+
+### Prueba un modelo directamente
+
+```bash
+node src/cli.js ask big-pickle "Explica los closures en una línea"
+node src/cli.js check          # prueba en vivo cada modelo
+```
+
+### Llama al adaptador como cualquier API de OpenAI
+
+```bash
+curl http://127.0.0.1:8790/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"space-bunny-free","messages":[{"role":"user","content":"hola"}]}'
+```
+
+---
+
+## Cómo funciona el gate del free tier
+
+La puerta de enlace solo sirve los modelos gratuitos a quien cree que es el cliente de OpenCode.
+El adaptador envía la huella atestiguada exacta:
+
+| Señal | Valor |
+|-------|-------|
+| `User-Agent` | `opencode/<versión>` (versión >= 1.17) |
+| `x-opencode-client` | `desktop` |
+| `x-opencode-session` | `ses_<12 hex><14 base62>` — un id estable por identidad |
+| `x-opencode-request` | `msg_<12 hex><14 base62>` — un id estable por turno |
+| `Authorization` | `Bearer public` |
+| `stream` (body) | `true` — las peticiones sin streaming se rechazan |
+| `tools` (body) | `bash`, `glob`, `grep`, `read` — el cuarteto de huella |
+
+Todo vive en [`src/opencode_free.js`](../src/opencode_free.js) y está cubierto por `node src/selftest.js`.
+
+---
+
+## Estructura del proyecto
+
+```
+opencode-free-9router/
+├── src/
+│   ├── opencode_free.js     # atestación, ids, shaping, complete()
+│   ├── adapter.js           # servidor HTTP compatible con OpenAI (:8790/v1)
+│   ├── connect-9router.js   # registra el proveedor en 9Router
+│   ├── cli.js               # list / ask / check
+│   └── selftest.js          # pruebas offline + --live
+├── docs/                    # READMEs traducidos
+├── assets/                  # logo + social preview
+└── STRUCTURE.md             # topología, mapa de archivos, diagramas
+```
+
+---
+
+## Pruebas
+
+```bash
+npm test              # offline: 11 comprobaciones, sin red
+npm run test:live     # además llama a cada modelo gratis (lento)
+```
+
+---
+
+## Notas de 9Router
+
+`connect-9router.js` habla con un 9Router local en `http://127.0.0.1:20128`. Cámbialo con:
+
+| Variable | Por defecto | Significado |
+|----------|-------------|-------------|
+| `ROUTER_URL` | `http://127.0.0.1:20128` | URL base de 9Router |
+| `ADAPTER_URL` | `http://127.0.0.1:8790/v1` | URL base de este adaptador |
+| `ADAPTER_API_KEY` | `sk-opencode-free` | clave que espera el adaptador |
+| `PROVIDER_NAME` | `OpenCode Free` | nombre en el panel de 9Router |
+| `INITIAL_PASSWORD` | `123456` | contraseña de 9Router si está configurada |
+
+---
+
+## Legal y uso justo
+
+Este proyecto es **no oficial** y no está afiliado a OpenCode ni a 9Router. Usa el free tier igual
+que el cliente de OpenCode. Los free tiers tienen límites y cambian sin aviso — respeta los términos
+del servicio upstream, mantén un volumen de peticiones razonable y no revendas el acceso. Úsalo bajo
+tu propio riesgo.
+
+---
+
+## Licencia
+
+[MIT](../LICENSE) © 2026 0xgetz
