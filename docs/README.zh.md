@@ -25,7 +25,7 @@
 
 ## 这是什么
 
-OpenCode 提供了 **免费额度（free tier）** —— 十个零成本可用的模型。但访问受限：除非请求携带官方
+OpenCode 提供了 **免费额度（free tier）** —— 十一个零成本可用的模型。但访问受限：除非请求携带官方
 客户端的指纹，否则网关会返回
 `403 FreeTierError: "OpenCode's free tier can only be used from within OpenCode"`。
 
@@ -43,7 +43,7 @@ OpenAI 客户端 ──▶ 9Router :20128/v1 ──▶ provider-node "OpenCode F
 
 ## 免费模型
 
-十个模型已完成端到端验证。使用两类端点。
+十一个模型已完成端到端验证。使用两类端点。
 
 | 模型 | 端点 | 上下文 | 说明 |
 |------|------|--------|------|
@@ -55,11 +55,12 @@ OpenAI 客户端 ──▶ 9Router :20128/v1 ──▶ provider-node "OpenCode F
 | `nemotron-3-ultra-free` | chat/completions | 1M | 大型模型 |
 | `nemotron-3.5-lightning-free` | chat/completions | 262K | 低延迟 |
 | `space-bunny-free` | chat/completions | 1M | 512K 输出 |
+| `step-5-preview-free` | chat/completions | 1M | StepFun 旗舰，文本+图像+视频 |
 | `muse-spark-1.2-contributor-free` | responses | 1M | contributor 模型 |
 | `muse-spark-1.3-contributor-free` | responses | 1M | contributor 模型 |
 
-**已知降级**（可达，但上游返回 *Endpoint is unavailable*）：`exo-free`、`ling-3.0-flash-fin-free`。
-已从默认集合排除，但仍保留文档说明。
+**当前未提供服务**（网关仍列出，但模型本身已弃用或上游不可用）：`exo-free`（已弃用）、
+`ling-3.0-flash-fin-free`（不可用）。已从默认集合排除，但仍保留文档说明。
 
 **不做代理**（协议不同，SystemOne）：`jev-1.13-free`。9Router 原生支持。
 
@@ -82,7 +83,7 @@ node src/adapter.js
 node src/connect-9router.js
 ```
 
-完成。9Router 中提供者 **OpenCode Free** 现在会列出十个模型。
+完成。9Router 中提供者 **OpenCode Free** 现在会列出十一个模型。
 
 ### 直接试用模型
 

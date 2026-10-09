@@ -25,7 +25,7 @@ Model gratis · klien free-tier teratestasi · kompatibel OpenAI · tanpa depend
 
 ## Apa itu
 
-OpenCode menyediakan **free tier** — sepuluh model yang bisa kamu pakai gratis. Tapi aksesnya
+OpenCode menyediakan **free tier** — sebelas model yang bisa kamu pakai gratis. Tapi aksesnya
 dikunci: gateway menjawab `403 FreeTierError: "OpenCode's free tier can only be used from within
 OpenCode"` kecuali permintaan membawa fingerprint klien resmi.
 
@@ -55,11 +55,13 @@ Sepuluh model terverifikasi dapat diakses *end-to-end*. Dua keluarga endpoint di
 | `nemotron-3-ultra-free` | chat/completions | 1M | model besar |
 | `nemotron-3.5-lightning-free` | chat/completions | 262K | latensi rendah |
 | `space-bunny-free` | chat/completions | 1M | output 512K |
+| `step-5-preview-free` | chat/completions | 1M | andalan StepFun, teks+gambar+video |
 | `muse-spark-1.2-contributor-free` | responses | 1M | model contributor |
 | `muse-spark-1.3-contributor-free` | responses | 1M | model contributor |
 
-**Diketahui menurun** (terjangkau, upstream bilang *Endpoint is unavailable*): `exo-free`,
-`ling-3.0-flash-fin-free`. Dikecualikan dari set default tetapi tetap didokumentasikan.
+**Tidak melayani saat ini** (terdaftar di gateway, tapi modelnya deprecated atau tidak tersedia di
+upstream): `exo-free` (deprecated), `ling-3.0-flash-fin-free` (tidak tersedia). Dikecualikan dari set
+default tetapi tetap didokumentasikan.
 
 **Tidak diproksi** (protokol berbeda, SystemOne): `jev-1.13-free`. 9Router menanganinya sendiri.
 
@@ -82,7 +84,7 @@ node src/adapter.js
 node src/connect-9router.js
 ```
 
-Selesai. Di 9Router provider **OpenCode Free** kini menampilkan sepuluh model.
+Selesai. Di 9Router provider **OpenCode Free** kini menampilkan sebelas model.
 
 ### Coba model langsung
 

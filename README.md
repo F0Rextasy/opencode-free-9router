@@ -25,7 +25,7 @@ Free models · attested free-tier client · OpenAI-compatible · zero dependenci
 
 ## What it is
 
-OpenCode ships a **free tier** — ten models you can use at no cost. Access is gated though:
+OpenCode ships a **free tier** — eleven models you can use at no cost. Access is gated though:
 the gateway answers `403 FreeTierError: "OpenCode's free tier can only be used from within OpenCode"`
 unless the request carries the official client's fingerprint.
 
@@ -47,7 +47,7 @@ OpenAI client ──▶ 9Router :20128/v1 ──▶ provider-node "OpenCode Free
 
 ## The free models
 
-Ten models are verified reachable end-to-end. Two endpoint families are used.
+Eleven models are verified reachable end-to-end. Two endpoint families are used.
 
 | Model | Endpoint | Context | Notes |
 |-------|----------|---------|-------|
@@ -59,11 +59,13 @@ Ten models are verified reachable end-to-end. Two endpoint families are used.
 | `nemotron-3-ultra-free` | chat/completions | 1M | large model |
 | `nemotron-3.5-lightning-free` | chat/completions | 262K | low latency |
 | `space-bunny-free` | chat/completions | 1M | 512K output |
+| `step-5-preview-free` | chat/completions | 1M | StepFun flagship, text+image+video |
 | `muse-spark-1.2-contributor-free` | responses | 1M | contributor model |
 | `muse-spark-1.3-contributor-free` | responses | 1M | contributor model |
 
-**Known degraded** (reachable, upstream reports *Endpoint is unavailable*): `exo-free`,
-`ling-3.0-flash-fin-free`. They are excluded from the default set but remain documented.
+**Not currently serving** (listed by the gateway, but the model itself is deprecated or unavailable
+upstream): `exo-free` (deprecated), `ling-3.0-flash-fin-free` (unavailable). They are excluded from
+the default set but remain documented.
 
 **Not proxied** (different wire protocol, SystemOne): `jev-1.13-free`. 9Router handles it natively.
 
@@ -86,7 +88,7 @@ node src/adapter.js
 node src/connect-9router.js
 ```
 
-That's it. In 9Router the provider **OpenCode Free** now lists ten routable models.
+That's it. In 9Router the provider **OpenCode Free** now lists eleven routable models.
 
 ### Try a model directly
 

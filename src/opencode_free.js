@@ -35,6 +35,7 @@ export const CHAT_MODELS = [
   "nemotron-3-ultra-free",
   "nemotron-3.5-lightning-free",
   "space-bunny-free",
+  "step-5-preview-free",
 ];
 
 /** Models served by the OpenAI Responses API (/responses). */
@@ -43,7 +44,7 @@ export const RESPONSES_MODELS = [
   "muse-spark-1.3-contributor-free",
 ];
 
-/** Models known to the gateway but reported upstream as unavailable. */
+/** Models known to the gateway but not currently serving requests. */
 export const DEGRADED_MODELS = [
   "exo-free",
   "ling-3.0-flash-fin-free",

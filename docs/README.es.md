@@ -25,7 +25,7 @@ Modelos gratis · cliente free-tier atestiguado · compatible con OpenAI · cero
 
 ## Qué es
 
-OpenCode incluye un **free tier**: diez modelos que puedes usar sin coste. Pero el acceso está
+OpenCode incluye un **free tier**: once modelos que puedes usar sin coste. Pero el acceso está
 restringido: la puerta de enlace responde `403 FreeTierError: "OpenCode's free tier can only be
 used from within OpenCode"` a menos que la petición lleve la huella del cliente oficial.
 
@@ -55,11 +55,13 @@ Diez modelos verificados de extremo a extremo. Se usan dos familias de endpoint.
 | `nemotron-3-ultra-free` | chat/completions | 1M | modelo grande |
 | `nemotron-3.5-lightning-free` | chat/completions | 262K | baja latencia |
 | `space-bunny-free` | chat/completions | 1M | salida 512K |
+| `step-5-preview-free` | chat/completions | 1M | buque insignia de StepFun, texto+imagen+vídeo |
 | `muse-spark-1.2-contributor-free` | responses | 1M | modelo contributor |
 | `muse-spark-1.3-contributor-free` | responses | 1M | modelo contributor |
 
-**Degradados conocidos** (accesibles, upstream dice *Endpoint is unavailable*): `exo-free`,
-`ling-3.0-flash-fin-free`. Excluidos del conjunto por defecto pero documentados.
+**Sin servicio actualmente** (listados por la puerta de enlace, pero el modelo está obsoleto o no
+disponible upstream): `exo-free` (obsoleto), `ling-3.0-flash-fin-free` (no disponible). Excluidos del
+conjunto por defecto pero documentados.
 
 **No proxificados** (protocolo distinto, SystemOne): `jev-1.13-free`. 9Router lo maneja nativamente.
 
@@ -82,7 +84,7 @@ node src/adapter.js
 node src/connect-9router.js
 ```
 
-Listo. En 9Router el proveedor **OpenCode Free** ya lista diez modelos.
+Listo. En 9Router el proveedor **OpenCode Free** ya lista once modelos.
 
 ### Prueba un modelo directamente
 

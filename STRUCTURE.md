@@ -30,7 +30,7 @@ provider inside 9Router.
                     ┌──────────────────────────────────────────────────────────┐
                     │               opencode.ai/zen/v1  (upstream)             │
                     │                                                          │
-                    │   POST /chat/completions   → 8 free chat models          │
+                    │   POST /chat/completions   → 9 free chat models          │
                     │   POST /responses          → 2 muse-spark models         │
                     └──────────────────────────────────────────────────────────┘
 ```
@@ -211,7 +211,7 @@ The provider was registered and exercised end-to-end against **9Router v0.5.95**
    POST /api/providers       {provider:<uuid>,name,apiKey,baseUrl}
          └▶ connection  authType:"apikey", isActive:true
 
-   GET  /v1/models           └▶ 10 ids, e.g. ocfree/big-pickle
+   GET  /v1/models           └▶ 11 ids, e.g. ocfree/big-pickle
    POST /v1/chat/completions └▶ 200, "ROUTED-OK"
 
    route:  client ─▶ 9Router :20128 ─▶ adapter :8790 ─▶ opencode.ai/zen/v1

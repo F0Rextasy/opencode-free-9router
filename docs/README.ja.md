@@ -25,7 +25,7 @@ OpenCode アカウント・API キー・サブスクリプションは不要 —
 
 ## 概要
 
-OpenCode には **無料枠（free tier）** があり、10 個のモデルを無料で使えます。ただしアクセスは
+OpenCode には **無料枠（free tier）** があり、11 個のモデルを無料で使えます。ただしアクセスは
 制限されています。公式クライアントのフィンガープリントを持たないリクエストには、ゲートウェイが
 `403 FreeTierError: "OpenCode's free tier can only be used from within OpenCode"` を返します。
 
@@ -43,7 +43,7 @@ OpenAI クライアント ──▶ 9Router :20128/v1 ──▶ provider-node "O
 
 ## 無料モデル
 
-10 個のモデルがエンドツーエンドで検証済みです。2 つのエンドポイント系統を使います。
+11 個のモデルがエンドツーエンドで検証済みです。2 つのエンドポイント系統を使います。
 
 | モデル | エンドポイント | コンテキスト | 備考 |
 |--------|----------------|--------------|------|
@@ -55,11 +55,13 @@ OpenAI クライアント ──▶ 9Router :20128/v1 ──▶ provider-node "O
 | `nemotron-3-ultra-free` | chat/completions | 1M | 大型モデル |
 | `nemotron-3.5-lightning-free` | chat/completions | 262K | 低レイテンシ |
 | `space-bunny-free` | chat/completions | 1M | 出力 512K |
+| `step-5-preview-free` | chat/completions | 1M | StepFun のフラッグシップ、テキスト+画像+動画 |
 | `muse-spark-1.2-contributor-free` | responses | 1M | contributor モデル |
 | `muse-spark-1.3-contributor-free` | responses | 1M | contributor モデル |
 
-**既知の劣化**（到達可能だが上流が *Endpoint is unavailable* を返す）: `exo-free`,
-`ling-3.0-flash-fin-free`。既定セットからは除外していますが文書化はしています。
+**現在サービス停止中**（ゲートウェイには登録されていますが、モデル自体が非推奨または上流で
+利用不可）: `exo-free`（非推奨）, `ling-3.0-flash-fin-free`（利用不可）。既定セットからは除外して
+いますが文書化はしています。
 
 **プロキシ対象外**（別プロトコル、SystemOne）: `jev-1.13-free`。9Router がネイティブ対応します。
 
@@ -82,7 +84,7 @@ node src/adapter.js
 node src/connect-9router.js
 ```
 
-これだけです。9Router のプロバイダー **OpenCode Free** に 10 個のモデルが並びます。
+これだけです。9Router のプロバイダー **OpenCode Free** に 11 個のモデルが並びます。
 
 ### モデルを直接試す
 
