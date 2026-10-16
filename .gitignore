@@ -6,3 +6,7 @@ node_modules/
 !.env.example
 coverage/
 dist/
+
+# local key lists (never commit)
+outputs/
+keys.txt

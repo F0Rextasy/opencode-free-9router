@@ -16,6 +16,10 @@
  */
 
 import http from "node:http";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { readFileSync } from "node:fs";
 import { complete, workingModels, CHAT_MODELS, RESPONSES_MODELS } from "./opencode_free.js";
 
 const PORT = Number(process.env.PORT || 8790);
@@ -62,9 +66,50 @@ function readBody(req) {
 }
 
 function authorized(req) {
-  if (!API_KEY) return true;
+  const keys = acceptedKeys();
+  if (!keys.length) return true;
   const header = req.headers["authorization"] || "";
-  return header === `Bearer ${API_KEY}`;
+  const presented = header.startsWith("Bearer ") ? header.slice(7) : "";
+  return presented ? keys.includes(presented) : false;
+}
+
+/**
+ * Keys this adapter accepts.
+ *
+ * `ADAPTER_API_KEYS_FILE` (one key per line, `#` comments allowed) takes
+ * precedence over the single `ADAPTER_API_KEY`, so a pool of locally issued keys
+ * can share one adapter instead of one adapter per key.
+ */
+let keysCache = null;
+function acceptedKeys() {
+  if (keysCache) return keysCache;
+  // `ADAPTER_API_KEYS_FILE` wins; otherwise fall back to the repo's own
+  // outputs/keys.txt, so a locally generated pool is enforced without having to
+  // thread the path through whatever shell started the adapter.
+  const candidates = [];
+  if (process.env.ADAPTER_API_KEYS_FILE) candidates.push(process.env.ADAPTER_API_KEYS_FILE);
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    candidates.push(join(here, "..", "outputs", "keys.txt"));
+  } catch (e) {
+    /* import.meta.url always exists in ESM; keep going if it somehow does not */
+  }
+  for (const file of candidates) {
+    try {
+      const keys = readFileSync(file, "utf8")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line && !line.startsWith("#"));
+      if (keys.length) {
+        keysCache = keys;
+        return keysCache;
+      }
+    } catch (e) {
+      if (process.env.ADAPTER_API_KEYS_FILE === file) console.error(`ADAPTER_API_KEYS_FILE ${file}: ${e.message}`);
+    }
+  }
+  keysCache = API_KEY ? [API_KEY] : [];
+  return keysCache;
 }
 
 export function createServer() {
@@ -181,7 +226,9 @@ function chunkText(text, size) {
   return out;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// `file://${process.argv[1]}` never matches on Windows (backslashes, drive
+// letter), so the server silently exited instead of listening; compare real URLs.
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`opencode-free adapter listening on http://${HOST}:${PORT}/v1`);
