@@ -20,7 +20,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { readFileSync } from "node:fs";
-import { complete, workingModels, CHAT_MODELS, RESPONSES_MODELS } from "./opencode_free.js";
+import { complete, workingModels, CHAT_MODELS, RESPONSES_MODELS, upstreamAuthorization } from "./opencode_free.js";
 
 const PORT = Number(process.env.PORT || 8790);
 const HOST = process.env.HOST || "127.0.0.1";
@@ -65,12 +65,20 @@ function readBody(req) {
   });
 }
 
+function presentedBearer(req) {
+  const header = req.headers["authorization"] || "";
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+}
+
 function authorized(req) {
   const keys = acceptedKeys();
   if (!keys.length) return true;
-  const header = req.headers["authorization"] || "";
-  const presented = header.startsWith("Bearer ") ? header.slice(7) : "";
-  return presented ? keys.includes(presented) : false;
+  const presented = presentedBearer(req);
+  if (!presented) return false;
+  // Console service-account keys (`oc_sk_...`) are not local adapter keys: they
+  // ride through to the upstream gateway, which is the authority on them.
+  if (upstreamAuthorization(presented) !== "Bearer public") return true;
+  return keys.includes(presented);
 }
 
 /**
@@ -159,6 +167,7 @@ export function createServer() {
           downstreamUa: req.headers["user-agent"] || "",
           downstreamClient: req.headers["x-opencode-client"] || "",
           project: req.headers["x-opencode-project"] || "global",
+          upstreamKey: presentedBearer(req),
         });
         if (body.stream) {
           streamAsSse(res, result, model);
@@ -188,7 +197,15 @@ function streamAsSse(res, completion, model) {
   });
   const id = completion.id;
   const created = completion.created;
-  const content = completion.choices?.[0]?.message?.content || "";
+  const message = completion.choices?.[0]?.message || {};
+  const content = message.content || "";
+  // The upstream (OpenCode Zen) returns real `tool_calls`; this adapter used to keep only
+  // `content` and re-emit a plain text stream, so a caller saw `finish_reason: "tool_calls"`
+  // with an empty message and every agentic subagent stalled (measured on space-bunny-free and
+  // big-pickle: the raw router response carried `finish_reason":"tool_calls"` and no tool call).
+  // Tool calls are forwarded verbatim — the OpenAI streaming contract sends them as
+  // `delta.tool_calls` with the full arguments in one chunk, which every client here accepts.
+  const toolCalls = Array.isArray(message.tool_calls) ? message.tool_calls : null;
   const head = {
     id,
     object: "chat.completion.chunk",
@@ -207,12 +224,26 @@ function streamAsSse(res, completion, model) {
     };
     res.write(`data: ${JSON.stringify(chunk)}\n\n`);
   }
+  if (toolCalls) {
+    // The OpenAI streaming contract requires an `index` on every entry of `delta.tool_calls`;
+    // aggregators (9Router builds its own response from this stream) key their accumulators on
+    // it, and without it the call is dropped even though the upstream produced one.
+    const withIndex = toolCalls.map((tc, i) => ({ index: i, ...tc }));
+    const chunk = {
+      id,
+      object: "chat.completion.chunk",
+      created,
+      model,
+      choices: [{ index: 0, delta: { tool_calls: withIndex }, finish_reason: null }],
+    };
+    res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+  }
   const tail = {
     id,
     object: "chat.completion.chunk",
     created,
     model,
-    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    choices: [{ index: 0, delta: {}, finish_reason: toolCalls ? "tool_calls" : "stop" }],
   };
   res.write(`data: ${JSON.stringify(tail)}\n\n`);
   res.write("data: [DONE]\n\n");

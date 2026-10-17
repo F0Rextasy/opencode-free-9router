@@ -199,6 +199,19 @@ export function isResponsesModel(model) {
   return RESPONSES_MODELS.includes(base);
 }
 
+/**
+ * Map a downstream bearer to the upstream Authorization header.
+ *
+ * Console service-account keys (`oc_sk_...`) are forwarded verbatim so requests
+ * are attributed to the account that owns them; anything else (the adapter's own
+ * `sk-ocfree-...` keys, an empty header) uses the anonymous `Bearer public`
+ * rail the free tier already accepts.
+ */
+export function upstreamAuthorization(key) {
+  const value = String(key || "").trim();
+  return /^oc_sk_[A-Za-z0-9_-]{16,}$/.test(value) ? `Bearer ${value}` : "Bearer public";
+}
+
 /** Build the attested headers for one upstream call. */
 export function buildHeaders({
   model,
@@ -207,12 +220,13 @@ export function buildHeaders({
   downstreamClient = "",
   project = "global",
   stream = true,
+  authorization = "Bearer public",
 } = {}) {
   const session = stableSessionId("opencode-free");
   const requestId = deriveRequestId(session, body);
   return {
     "Content-Type": "application/json",
-    Authorization: "Bearer public",
+    Authorization: authorization,
     "User-Agent": hasValidVersion(downstreamUa) ? downstreamUa : `opencode/${OPENCODE_VERSION}`,
     "x-opencode-client": downstreamClient || "desktop",
     "x-opencode-session": session,
@@ -310,6 +324,7 @@ export async function complete(model, body, opts = {}) {
     downstreamClient: opts.downstreamClient,
     project: opts.project,
     stream: true,
+    authorization: upstreamAuthorization(opts.upstreamKey),
   });
 
   const controller = new AbortController();
@@ -349,6 +364,12 @@ async function aggregateChat(model, res) {
   let reasoning = "";
   let finish = "stop";
   let usage = null;
+  // The upstream streams tool calls as `delta.tool_calls`, split across chunks and keyed by
+  // `index` (OpenAI's streaming contract). This aggregator collected only `content`/`reasoning`,
+  // so every tool call was dropped while `finish_reason:"tool_calls"` survived — a caller saw a
+  // completed call with nothing to execute and each agentic subagent stalled (measured on
+  // space-bunny-free and big-pickle). Accumulate and merge them by index.
+  const toolCalls = [];
   for (const line of text.split("\n")) {
     if (!line.startsWith("data:")) continue;
     const payload = line.slice(5).trim();
@@ -366,6 +387,16 @@ async function aggregateChat(model, res) {
     const delta = choice.delta || {};
     content += delta.content || "";
     reasoning += delta.reasoning || "";
+    if (Array.isArray(delta.tool_calls)) {
+      for (const piece of delta.tool_calls) {
+        const idx = Number.isInteger(piece.index) ? piece.index : toolCalls.length;
+        if (!toolCalls[idx]) toolCalls[idx] = { id: piece.id || `call_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`, type: "function", function: { name: "", arguments: "" } };
+        if (piece.id) toolCalls[idx].id = piece.id;
+        if (piece.type) toolCalls[idx].type = piece.type;
+        if (piece.function?.name) toolCalls[idx].function.name += piece.function.name;
+        if (piece.function?.arguments) toolCalls[idx].function.arguments += piece.function.arguments;
+      }
+    }
   }
   return {
     id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "")}`,
@@ -375,7 +406,11 @@ async function aggregateChat(model, res) {
     choices: [
       {
         index: 0,
-        message: { role: "assistant", content: content || reasoning || "" },
+        message: {
+          role: "assistant",
+          content: content || reasoning || "",
+          ...(toolCalls.length ? { tool_calls: toolCalls } : {}),
+        },
         finish_reason: finish,
       },
     ],
