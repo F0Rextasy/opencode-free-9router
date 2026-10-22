@@ -44,7 +44,9 @@ async function main() {
       return;
     }
     case "check": {
-      for (const model of workingModels()) {
+      const models = workingModels();
+      let failed = 0;
+      for (const [index, model] of models.entries()) {
         process.stdout.write(`${model.padEnd(38)} `);
         try {
           const out = await complete(model, {
@@ -54,10 +56,16 @@ async function main() {
           const text = out.choices?.[0]?.message?.content || "";
           console.log(`PASS ${JSON.stringify(text.slice(0, 40))}`);
         } catch (err) {
+          failed++;
           console.log(`FAIL ${err.message.slice(0, 70)}`);
         }
-        await new Promise((r) => setTimeout(r, 8000));
+        // No trailing sleep: the last probe does not need spacing.
+        if (index < models.length - 1) await new Promise((r) => setTimeout(r, 8000));
       }
+      console.log(`${models.length - failed}/${models.length} models answered`);
+      // A probe run where every model failed used to exit 0, so a wrapper (or `npm run
+      // check` in CI) read success from a run that answered nothing.
+      if (failed) process.exitCode = 1;
       return;
     }
     default:

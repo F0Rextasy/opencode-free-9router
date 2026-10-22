@@ -102,6 +102,7 @@ node src/cli.js check          # live-probe every working model
 ```bash
 curl http://127.0.0.1:8790/v1/chat/completions \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer sk-opencode-free' \
   -d '{"model":"space-bunny-free","messages":[{"role":"user","content":"hi"}]}'
 ```
 
@@ -190,7 +191,9 @@ Models appear in 9Router as `ocfree/<model>`. Override behaviour with:
 9Router package and reuses its own authenticated client; if it cannot, it falls back to raw HTTP
 with `NINEROUTER_CLI_TOKEN`.
 
-The adapter also honours `PORT`, `HOST`, `ADAPTER_API_KEY` and `QUIET`.
+The adapter also honours `PORT`, `HOST`, `ADAPTER_API_KEY` and `QUIET`, plus
+`ADAPTER_API_KEYS_FILE` (one key per line, `#` comments allowed) for a pool of locally issued keys;
+the adapter's own `outputs/keys.txt` is used the same way when that file exists.
 
 ---
 

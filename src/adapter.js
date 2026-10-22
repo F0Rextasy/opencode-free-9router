@@ -24,7 +24,11 @@ import { complete, workingModels, CHAT_MODELS, RESPONSES_MODELS, upstreamAuthori
 
 const PORT = Number(process.env.PORT || 8790);
 const HOST = process.env.HOST || "127.0.0.1";
-const API_KEY = process.env.ADAPTER_API_KEY || "";
+// The README and .env.example document `sk-opencode-free` as the key this adapter
+// expects. An empty default made that key decorative: with no key file and no
+// ADAPTER_API_KEY every request was authorised, so any local process (and, with a
+// non-loopback HOST, anything on the network) could spend this free tier.
+const API_KEY = process.env.ADAPTER_API_KEY || "sk-opencode-free";
 const QUIET = process.env.QUIET === "1";
 
 export function modelList() {
@@ -47,15 +51,25 @@ function json(res, status, payload) {
   res.end(body);
 }
 
+const MAX_BODY_BYTES = 20 * 1024 * 1024;
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let tooLarge = false;
     req.on("data", (c) => {
       size += c.length;
-      if (size > 20 * 1024 * 1024) {
-        reject(new Error("payload too large"));
-        req.destroy();
+      if (size > MAX_BODY_BYTES) {
+        if (!tooLarge) {
+          tooLarge = true;
+          // Keep draining so the socket can finish, but stop buffering and report the
+          // real reason: this used to destroy the socket (the client saw a reset, never
+          // a status) while the handler called it "invalid JSON body".
+          const err = new Error(`payload too large (limit ${MAX_BODY_BYTES} bytes)`);
+          err.status = 413;
+          reject(err);
+        }
         return;
       }
       chunks.push(c);
@@ -72,7 +86,6 @@ function presentedBearer(req) {
 
 function authorized(req) {
   const keys = acceptedKeys();
-  if (!keys.length) return true;
   const presented = presentedBearer(req);
   if (!presented) return false;
   // Console service-account keys (`oc_sk_...`) are not local adapter keys: they
@@ -89,6 +102,8 @@ function authorized(req) {
  * can share one adapter instead of one adapter per key.
  */
 let keysCache = null;
+let keySource = "not resolved yet";
+let configError = null;
 function acceptedKeys() {
   if (keysCache) return keysCache;
   // `ADAPTER_API_KEYS_FILE` wins; otherwise fall back to the repo's own
@@ -110,13 +125,25 @@ function acceptedKeys() {
         .filter((line) => line && !line.startsWith("#"));
       if (keys.length) {
         keysCache = keys;
+        keySource = `${file} (${keys.length} key${keys.length === 1 ? "" : "s"})`;
         return keysCache;
       }
     } catch (e) {
-      if (process.env.ADAPTER_API_KEYS_FILE === file) console.error(`ADAPTER_API_KEYS_FILE ${file}: ${e.message}`);
+      if (process.env.ADAPTER_API_KEYS_FILE === file) {
+        configError = `ADAPTER_API_KEYS_FILE ${file}: ${e.message}`;
+      }
     }
   }
-  keysCache = API_KEY ? [API_KEY] : [];
+  // A key file that was asked for and could not be read must not turn into "the
+  // documented default key is enough" - refuse instead of falling back silently.
+  if (process.env.ADAPTER_API_KEYS_FILE) {
+    keysCache = [];
+    keySource = `ADAPTER_API_KEYS_FILE ${process.env.ADAPTER_API_KEYS_FILE} (unusable)`;
+    configError ||= `ADAPTER_API_KEYS_FILE ${process.env.ADAPTER_API_KEYS_FILE} yielded no keys`;
+    return keysCache;
+  }
+  keysCache = [API_KEY];
+  keySource = `ADAPTER_API_KEY${process.env.ADAPTER_API_KEY ? "" : " (documented default)"}`;
   return keysCache;
 }
 
@@ -146,6 +173,11 @@ export function createServer() {
     }
 
     if (req.method === "POST" && (path === "/v1/chat/completions" || path === "/chat/completions")) {
+      acceptedKeys();
+      if (configError) {
+        json(res, 503, { error: { message: configError, type: "server_error" } });
+        return;
+      }
       if (!authorized(req)) {
         json(res, 401, { error: { message: "invalid api key", type: "invalid_request_error" } });
         return;
@@ -153,8 +185,10 @@ export function createServer() {
       let body;
       try {
         body = JSON.parse((await readBody(req)) || "{}");
-      } catch {
-        json(res, 400, { error: { message: "invalid JSON body", type: "invalid_request_error" } });
+      } catch (err) {
+        json(res, err.status || 400, {
+          error: { message: err.status ? err.message : "invalid JSON body", type: "invalid_request_error" },
+        });
         return;
       }
       const model = body.model;
@@ -260,11 +294,22 @@ function chunkText(text, size) {
 // `file://${process.argv[1]}` never matches on Windows (backslashes, drive
 // letter), so the server silently exited instead of listening; compare real URLs.
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  acceptedKeys();
+  if (configError) {
+    console.error(`!! ${configError} — refusing to start`);
+    process.exit(1);
+  }
   const server = createServer();
   server.listen(PORT, HOST, () => {
     console.log(`opencode-free adapter listening on http://${HOST}:${PORT}/v1`);
     console.log(`  chat models:      ${CHAT_MODELS.length}`);
     console.log(`  responses models: ${RESPONSES_MODELS.length}`);
+    console.log(`  auth key:         ${keySource}`);
+    if (!/^(127\.0\.0\.1|localhost|::1)$/.test(HOST)) {
+      console.warn(
+        `!! listening on ${HOST}: anything that can reach this port can spend this free tier — set ADAPTER_API_KEY to a private value`,
+      );
+    }
   });
   const shutdown = () => server.close(() => process.exit(0));
   process.on("SIGINT", shutdown);

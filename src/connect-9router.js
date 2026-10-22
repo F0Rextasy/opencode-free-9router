@@ -31,6 +31,21 @@ const ADAPTER = process.env.ADAPTER_URL || "http://127.0.0.1:8790/v1";
 const ADAPTER_KEY = process.env.ADAPTER_API_KEY || "sk-opencode-free";
 const NAME = process.env.PROVIDER_NAME || "OpenCode Free";
 const PREFIX = process.env.PROVIDER_PREFIX || "ocfree";
+const TIMEOUT_MS = 10_000;
+
+/**
+ * Every call to the local 9Router (and to the adapter's /health) gets a deadline.
+ * A router that accepted the connection and then stopped answering used to hang
+ * this script forever, with no output and no exit code for a wrapper to read.
+ */
+async function localFetch(method, url, init = {}) {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  } catch (err) {
+    const reason = err.name === "TimeoutError" ? `no answer within ${TIMEOUT_MS} ms` : err.message;
+    throw new Error(`${method} ${url}: ${reason}`);
+  }
+}
 
 /** Try to locate 9Router's own installed API client. */
 function findRouterClient() {
@@ -55,7 +70,7 @@ async function rawRequest(method, pathname, body) {
       "no 9router client found and NINEROUTER_CLI_TOKEN is not set; run `npm i -g 9router` or export the token",
     );
   }
-  const res = await fetch(`${ROUTER}${pathname}`, {
+  const res = await localFetch("POST", `${ROUTER}${pathname}`, {
     method,
     headers: { "Content-Type": "application/json", "x-9r-cli-token": token },
     body: body ? JSON.stringify(body) : undefined,
@@ -100,7 +115,7 @@ function makeClient() {
 
 async function checkAdapter() {
   try {
-    const res = await fetch(`${ADAPTER.replace(/\/v1$/, "")}/health`);
+    const res = await localFetch("GET", `${ADAPTER.replace(/\/v1$/, "")}/health`);
     if (!res.ok) throw new Error(String(res.status));
   } catch (err) {
     console.error(`!! adapter not reachable at ${ADAPTER} (${err.message})`);
@@ -151,7 +166,7 @@ async function main() {
       baseUrl: ADAPTER,
     });
     console.log("api-key connection created");
-    if (!res.success) console.warn("  warning:", res.error || JSON.stringify(res));
+    if (res && res.success === false) console.warn("  warning:", res.error || JSON.stringify(res));
   }
 
   console.log(

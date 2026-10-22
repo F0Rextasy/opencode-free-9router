@@ -117,7 +117,7 @@ await test("adapter serves /v1/models and /health", async () => {
     assert.equal(models.object, "list");
     assert.ok(models.data.length >= 8);
   } finally {
-    server.close();
+    await new Promise((r) => server.close(() => r()));
   }
 });
 
@@ -129,7 +129,7 @@ await test("adapter 404s unknown routes", async () => {
     const res = await fetch(`http://127.0.0.1:${port}/nope`);
     assert.equal(res.status, 404);
   } finally {
-    server.close();
+    await new Promise((r) => server.close(() => r()));
   }
 });
 
@@ -149,4 +149,7 @@ if (LIVE) {
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed === 0 ? 0 : 1);
+// `process.exit()` here aborted the process while the test servers' sockets were
+// still closing (Windows/Node 24: "Assertion failed: !(handle->flags &
+// UV_HANDLE_CLOSING)" and status 0xC0000409), so a green run reported a crash code.
+process.exitCode = failed === 0 ? 0 : 1;

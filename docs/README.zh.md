@@ -97,6 +97,7 @@ node src/cli.js check          # 实时探测每个模型
 ```bash
 curl http://127.0.0.1:8790/v1/chat/completions \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer sk-opencode-free' \
   -d '{"model":"space-bunny-free","messages":[{"role":"user","content":"你好"}]}'
 ```
 

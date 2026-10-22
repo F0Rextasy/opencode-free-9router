@@ -98,6 +98,7 @@ node src/cli.js check          # uji langsung setiap model
 ```bash
 curl http://127.0.0.1:8790/v1/chat/completions \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer sk-opencode-free' \
   -d '{"model":"space-bunny-free","messages":[{"role":"user","content":"hai"}]}'
 ```
 

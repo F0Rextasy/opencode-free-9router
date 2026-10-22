@@ -98,6 +98,7 @@ node src/cli.js check          # prueba en vivo cada modelo
 ```bash
 curl http://127.0.0.1:8790/v1/chat/completions \
   -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer sk-opencode-free' \
   -d '{"model":"space-bunny-free","messages":[{"role":"user","content":"hola"}]}'
 ```
 

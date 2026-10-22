@@ -328,34 +328,66 @@ export async function complete(model, body, opts = {}) {
   });
 
   const controller = new AbortController();
+  // The deadline has to stay armed while the body is read. Clearing it as soon as
+  // the response headers arrive (the old shape) left `res.text()` with no bound at
+  // all: a gateway that answers 200 and then stalls pinned this call, the socket and
+  // the downstream request forever.
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  let res;
   try {
-    res = await fetchImpl(endpointFor(model), {
+    const res = await fetchImpl(endpointFor(model), {
       method: "POST",
       headers,
       body: JSON.stringify(prepared),
       signal: controller.signal,
     });
+
+    if (!res.ok) {
+      const text = await res.text();
+      let detail = text;
+      try {
+        detail = JSON.parse(text).error?.message || text;
+      } catch {
+        /* keep raw */
+      }
+      const err = new Error(`opencode free: HTTP ${res.status} ${detail}`.trim());
+      err.status = res.status;
+      throw err;
+    }
+
+    if (responses) return await aggregateResponses(model, res);
+    return await aggregateChat(model, res);
+  } catch (err) {
+    if (err?.name === "AbortError") {
+      const timeout = new Error(`opencode free: upstream timeout after ${timeoutMs} ms`);
+      timeout.status = 504;
+      throw timeout;
+    }
+    throw err;
   } finally {
     clearTimeout(timer);
   }
+}
 
-  if (!res.ok) {
-    const text = await res.text();
-    let detail = text;
-    try {
-      detail = JSON.parse(text).error?.message || text;
-    } catch {
-      /* keep raw */
-    }
-    const err = new Error(`opencode free: HTTP ${res.status} ${detail}`.trim());
-    err.status = res.status;
-    throw err;
+/** An upstream body that cannot be read as a stream is an error, not an empty answer. */
+function streamFailure(model, detail) {
+  const message = String(detail ?? "no content").replace(/\s+/g, " ").trim().slice(0, 300);
+  const err = new Error(`opencode free: ${model} stream error: ${message || "no content"}`);
+  err.status = 502;
+  return err;
+}
+
+/** Pull a human-readable reason out of a body that was not a stream at all. */
+function bodyReason(text) {
+  const trimmed = String(text || "").trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed);
+    const reason = parsed?.error?.message || parsed?.message || parsed?.error;
+    if (reason) return typeof reason === "string" ? reason : JSON.stringify(reason);
+  } catch {
+    /* not JSON */
   }
-
-  if (responses) return aggregateResponses(model, res);
-  return aggregateChat(model, res);
+  return trimmed.slice(0, 200);
 }
 
 async function aggregateChat(model, res) {
@@ -370,6 +402,7 @@ async function aggregateChat(model, res) {
   // completed call with nothing to execute and each agentic subagent stalled (measured on
   // space-bunny-free and big-pickle). Accumulate and merge them by index.
   const toolCalls = [];
+  let chunks = 0;
   for (const line of text.split("\n")) {
     if (!line.startsWith("data:")) continue;
     const payload = line.slice(5).trim();
@@ -380,6 +413,11 @@ async function aggregateChat(model, res) {
     } catch {
       continue;
     }
+    chunks++;
+    // The free tier reports "free usage exceeded" as a JSON body or an SSE `error`
+    // payload with HTTP 200. Folding that into an empty completion handed the caller
+    // a successful stop with no content, and 9Router recorded a working model.
+    if (chunk.error) throw streamFailure(model, chunk.error.message || chunk.error);
     if (chunk.usage) usage = chunk.usage;
     const choice = chunk.choices?.[0];
     if (!choice) continue;
@@ -398,6 +436,7 @@ async function aggregateChat(model, res) {
       }
     }
   }
+  if (!chunks) throw streamFailure(model, bodyReason(text) || "upstream returned 200 without a stream body");
   return {
     id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "")}`,
     object: "chat.completion",
@@ -421,6 +460,7 @@ async function aggregateChat(model, res) {
 async function aggregateResponses(model, res) {
   const text = await res.text();
   let content = "";
+  let events = 0;
   for (const line of text.split("\n")) {
     if (!line.startsWith("data:")) continue;
     const payload = line.slice(5).trim();
@@ -430,6 +470,10 @@ async function aggregateResponses(model, res) {
       ev = JSON.parse(payload);
     } catch {
       continue;
+    }
+    events++;
+    if (ev.type === "error" || ev.type === "response.failed") {
+      throw streamFailure(model, ev.error?.message || ev.response?.error?.message || ev.type);
     }
     if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") {
       content += ev.delta;
@@ -441,6 +485,7 @@ async function aggregateResponses(model, res) {
       }
     }
   }
+  if (!events) throw streamFailure(model, bodyReason(text) || "upstream returned 200 without a stream body");
   return {
     id: `chatcmpl-${crypto.randomUUID().replace(/-/g, "")}`,
     object: "chat.completion",

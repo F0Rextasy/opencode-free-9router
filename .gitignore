@@ -10,3 +10,5 @@ dist/
 # local key lists (never commit)
 outputs/
 keys.txt
+accounts.json
+proxies.txt
