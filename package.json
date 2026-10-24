@@ -27,6 +27,7 @@
   "bin": {
     "opencode-free-adapter": "./src/adapter.js",
     "opencode-free-connect": "./src/connect-9router.js",
+    "opencode-free-connect-omniroute": "./src/connect-omniroute.js",
     "opencode-free": "./src/cli.js",
     "opencode-free-selftest": "./src/selftest.js"
   },
@@ -47,6 +48,7 @@
     "start": "node src/adapter.js",
     "adapter": "node src/adapter.js",
     "connect": "node src/connect-9router.js",
+    "omniroute": "node src/connect-omniroute.js",
     "list": "node src/cli.js list",
     "check": "node src/cli.js check",
     "test": "node src/selftest.js",

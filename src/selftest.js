@@ -25,6 +25,8 @@ import {
   complete,
   SESSION_RE,
   REQUEST_RE,
+  CHAT_MODELS,
+  RESPONSES_MODELS,
 } from "./opencode_free.js";
 import { createServer } from "./adapter.js";
 
@@ -97,12 +99,12 @@ await test("headers carry the attestation", () => {
 });
 
 await test("endpoint routing: responses vs chat", () => {
-  assert.match(endpointFor("muse-spark-1.3-contributor-free"), /\/responses$/);
-  assert.match(endpointFor("big-pickle"), /\/chat\/completions$/);
+  for (const m of RESPONSES_MODELS) assert.match(endpointFor(m), /\/responses$/);
+  assert.match(endpointFor(CHAT_MODELS[0]), /\/chat\/completions$/);
 });
 
 await test("working model set is non-empty", () => {
-  assert.ok(workingModels().length >= 8);
+  assert.ok(workingModels().length >= 1);
 });
 
 await test("adapter serves /v1/models and /health", async () => {
@@ -115,7 +117,7 @@ await test("adapter serves /v1/models and /health", async () => {
     assert.equal(health.status, "ok");
     const models = await fetch(`${base}/v1/models`).then((r) => r.json());
     assert.equal(models.object, "list");
-    assert.ok(models.data.length >= 8);
+    assert.ok(models.data.length >= 1);
   } finally {
     await new Promise((r) => server.close(() => r()));
   }

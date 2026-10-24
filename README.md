@@ -197,6 +197,44 @@ the adapter's own `outputs/keys.txt` is used the same way when that file exists.
 
 ---
 
+
+## OmniRoute notes
+
+`connect-omniroute.js` talks to a local OmniRoute at `http://127.0.0.1:20128`. It registers a custom
+`openai-compatible` node and an API-key connection, then prints the live model ids.
+
+Verified against **OmniRoute v0.5.95**:
+
+```
+POST /api/provider-nodes  { name, prefix, baseUrl, type, apiType }   -> node
+POST /api/providers       { provider, name, apiKey, baseUrl }        -> connection
+GET  /v1/models                                                      -> <prefix>/<model>
+POST /v1/chat/completions  (with a router API key)                   -> 200
+```
+
+Models appear in OmniRoute as `ocfree/<model>`. Override behaviour with:
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `ROUTER_URL` | `http://127.0.0.1:20128` | OmniRoute base URL |
+| `ADAPTER_URL` | `http://127.0.0.1:8790/v1` | this adapter's base URL |
+| `ADAPTER_API_KEY` | `sk-opencode-free` | key the adapter expects (and OmniRoute sends) |
+| `PROVIDER_NAME` | `OpenCode Free` | node name in the OmniRoute dashboard |
+| `PROVIDER_PREFIX` | `ocfree` | model id prefix used by OmniRoute |
+| `NINEROUTER_CLIENT` | auto-detected | path to OmniRoute's CLI API client |
+| `NINEROUTER_CLI_TOKEN` | — | fallback device token for raw HTTP mode |
+| `SKIP_CONNECTION` | — | set `1` to only create the node |
+
+OmniRoute protects these routes with a device CLI token. The connector auto-detects the installed
+OmniRoute package and reuses its own authenticated client; if it cannot, it falls back to raw HTTP
+with `NINEROUTER_CLI_TOKEN`.
+
+The adapter also honours `PORT`, `HOST`, `ADAPTER_API_KEY` and `QUIET`, plus
+`ADAPTER_API_KEYS_FILE` (one key per line, `#` comments allowed) for a pool of locally issued keys;
+the adapter's own `outputs/keys.txt` is used the same way when that file exists.
+
+---
+
 ## Legal and fair use
 
 This project is **unofficial** and not affiliated with OpenCode or 9Router. It uses the free tier

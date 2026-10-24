@@ -28,26 +28,25 @@ export const ZEN_BASE = "https://opencode.ai/zen/v1";
 /** Models served by /chat/completions and verified reachable. */
 export const CHAT_MODELS = [
   "big-pickle",
-  "fledge-alpha-free",
-  "ling-3.1-flash-free",
   "longcat-2.5-preview-free",
   "mimo-v2.6-flash-free",
   "nemotron-3-ultra-free",
   "nemotron-3.5-lightning-free",
-  "space-bunny-free",
-  "step-5-preview-free",
 ];
 
 /** Models served by the OpenAI Responses API (/responses). */
-export const RESPONSES_MODELS = [
-  "muse-spark-1.2-contributor-free",
-  "muse-spark-1.3-contributor-free",
-];
+export const RESPONSES_MODELS = [];
 
 /** Models known to the gateway but not currently serving requests. */
 export const DEGRADED_MODELS = [
   "exo-free",
   "ling-3.0-flash-fin-free",
+  "fledge-alpha-free", // live check 2026-10-23: 410 deprecated
+  "muse-spark-1.2-contributor-free", // 410 deprecated
+  "muse-spark-1.3-contributor-free", // 410 deprecated
+  "ling-3.1-flash-free", // 400 model unavailable
+  "space-bunny-free", // 400 model unavailable
+  "step-5-preview-free", // 400 model unavailable
 ];
 
 /**
